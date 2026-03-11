@@ -1,16 +1,12 @@
-# Build stage
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 WORKDIR /app
 
-# Copy csproj and restore dependencies
 COPY cartservice.csproj ./
 RUN dotnet restore cartservice.csproj
 
-# Copy all source files except tests
 COPY . ./
-RUN rm -rf ./tests     # remove tests folder if present
+RUN rm -rf ./tests
 
-# Publish the project
 RUN dotnet publish cartservice.csproj \
     -c Release \
     -o /cartservice \
@@ -20,8 +16,7 @@ RUN dotnet publish cartservice.csproj \
     -p:PublishTrimmed=true \
     -p:TrimMode=full
 
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/runtime:7.0
+FROM mcr.microsoft.com/dotnet/runtime:10.0
 WORKDIR /app
 COPY --from=builder /cartservice .
 ENTRYPOINT ["./cartservice"]
