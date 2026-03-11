@@ -34,7 +34,7 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
       containers:
-        - name: server
+        - name: checkoutservice
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

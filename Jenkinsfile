@@ -9,43 +9,88 @@ pipeline {
 
     stages {
 
-        stage('Build Docker Image') {
-            steps {
-                sh 'docker build -t $DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG ./src/frontend'
-            }
-        }
-
-        stage('Push Image to DockerHub') {
+        stage('Build & Push Docker Images') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
+                    credentialsId: 'dockerhub', 
+                    usernameVariable: 'DOCKER_USER', 
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                sh '''
-                echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                docker push $DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG
-                '''
+                    script {
+                        def services = [
+                            'frontend',
+                            'cartservice',
+                            'checkoutservice',
+                            'paymentservice',
+                            'productcatalogservice',
+                            'recommendationservice',
+                            'shippingservice',
+                            'adservice',
+                            'currencyservice',
+                            'emailservice'
+                        ]
+
+                        for (svc in services) {
+                            sh """
+                            docker build -t $DOCKER_USER/$svc:$IMAGE_TAG ./src/$svc
+                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                            docker push $DOCKER_USER/$svc:$IMAGE_TAG
+                            """
+                        }
+                    }
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                kubectl set image deployment/frontend\
-                server=$DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG
-                '''
+                script {
+                    def services = [
+                        'frontend',
+                        'cartservice',
+                        'checkoutservice',
+                        'paymentservice',
+                        'productcatalogservice',
+                        'recommendationservice',
+                        'shippingservice',
+                        'adservice',
+                        'currencyservice',
+                        'emailservice'
+                    ]
+
+                    for (svc in services) {
+                        sh """
+                        kubectl set image deployment/${svc} ${svc}=$DOCKER_USER/${svc}:$IMAGE_TAG
+                        kubectl rollout status deployment/${svc}
+                        """
+                    }
+                }
             }
         }
-        
+
         stage('Apply Autoscaling') {
             steps {
-                sh """
-                # Create HPA if not exists, else patch max replicas
-                kubectl autoscale deployment frontend --cpu-percent=50 --min=1 --max=5 || \
-                kubectl patch hpa frontend -p '{"spec":{"maxReplicas":5}}'
-                """
+                script {
+                    def services = [
+                        'frontend',
+                        'cartservice',
+                        'checkoutservice',
+                        'paymentservice',
+                        'productcatalogservice',
+                        'recommendationservice',
+                        'shippingservice',
+                        'adservice',
+                        'currencyservice',
+                        'emailservice'
+                    ]
+
+                    for (svc in services) {
+                        sh """
+                        kubectl autoscale deployment ${svc} --cpu-percent=50 --min=1 --max=5 || \
+                        kubectl patch hpa ${svc} -p '{"spec":{"maxReplicas":5}}'
+                        """
+                    }
+                }
             }
         }
 
