@@ -4,13 +4,14 @@ pipeline {
     environment {
         DOCKER_USER = "therealmahmoud"
         IMAGE_NAME = "frontend"
+        IMAGE_TAG = "${GIT_COMMIT}"
     }
 
     stages {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $DOCKER_USER/$IMAGE_NAME ./src/frontend'
+                sh 'docker build -t $DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG ./src/frontend'
             }
         }
 
@@ -23,7 +24,7 @@ pipeline {
                 )]) {
                 sh '''
                 echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                docker push $DOCKER_USER/frontend
+                docker push $DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG
                 '''
                 }
             }
@@ -32,8 +33,8 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                kubectl set image deployment/frontend \
-                frontend=therealmahmoud/frontend
+                kubectl set image deployment/frontend\
+                server=$DOCKER_USER/$IMAGE_NAME:$IMAGE_TAG
                 '''
             }
         }
