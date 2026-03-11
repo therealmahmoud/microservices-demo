@@ -38,6 +38,16 @@ pipeline {
                 '''
             }
         }
+        
+        stage('Apply Autoscaling') {
+            steps {
+                sh """
+                # Create HPA if not exists, else patch max replicas
+                kubectl autoscale deployment frontend --cpu-percent=50 --min=1 --max=5 || \
+                kubectl patch hpa frontend -p '{"spec":{"maxReplicas":5}}'
+                """
+            }
+        }
 
     }
 }
