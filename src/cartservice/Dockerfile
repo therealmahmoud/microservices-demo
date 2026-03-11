@@ -2,14 +2,14 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 WORKDIR /app
 
-# Copy project file first and restore dependencies
+# Copy csproj first and restore
 COPY cartservice.csproj ./
 RUN dotnet restore cartservice.csproj
 
-# Copy all source files (exclude tests)
-COPY ./src/cartservice/*.cs ./ 
+# Copy all source files (inside the same folder as Dockerfile)
+COPY . ./
 
-# Publish as framework-dependent (smaller!)
+# Publish
 RUN dotnet publish cartservice.csproj \
     -c Release \
     -o /cartservice \
@@ -20,8 +20,6 @@ RUN dotnet publish cartservice.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 
-# Copy published files from builder
 COPY --from=builder /cartservice .
 
-# Run your service
 ENTRYPOINT ["dotnet", "cartservice.dll"]
