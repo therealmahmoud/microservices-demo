@@ -1,22 +1,27 @@
+# Stage 1: Build
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 WORKDIR /app
 
+# Copy project file first and restore dependencies
 COPY cartservice.csproj ./
 RUN dotnet restore cartservice.csproj
 
-COPY . ./
-RUN rm -rf ./tests
+# Copy all source files (exclude tests)
+COPY ./src/cartservice/*.cs ./ 
 
+# Publish as framework-dependent (smaller!)
 RUN dotnet publish cartservice.csproj \
     -c Release \
     -o /cartservice \
-    -p:PublishSingleFile=true \
-    -a amd64 \
-    --self-contained true \
     -p:PublishTrimmed=true \
     -p:TrimMode=full
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
+
+# Copy published files from builder
 COPY --from=builder /cartservice .
-ENTRYPOINT ["./cartservice"]
+
+# Run your service
+ENTRYPOINT ["dotnet", "cartservice.dll"]
