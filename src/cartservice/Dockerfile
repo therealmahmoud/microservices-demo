@@ -2,12 +2,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 WORKDIR /app
 
-# Copy the project file and restore dependencies
+# Copy project file and restore dependencies
 COPY cartservice.csproj ./
 RUN dotnet restore cartservice.csproj
 
-# Copy only the source files, **exclude tests**
-COPY ./src/cartservice/*.cs ./
+# Copy only the service source files (exclude tests)
+COPY *.cs ./   # <-- relative to the Dockerfile in cartservice/
 
 # Publish the service
 RUN dotnet publish cartservice.csproj \
