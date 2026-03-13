@@ -12,6 +12,7 @@ pipeline {
         IMAGE_TAG = "${GIT_COMMIT}"
         DOCKER_CLIENT_TIMEOUT = '600'
         COMPOSE_HTTP_TIMEOUT = '600'
+        DOCKER_BUILDKIT = '1'
     }
 
 stages {
@@ -39,7 +40,9 @@ stages {
                             'emailservice'
                         ]
 
-                        sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+                        sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        '''
 
                         for (svc in services) {
 
@@ -53,9 +56,20 @@ stages {
                                 -t $DOCKER_USER/$svc:latest \
                                 ./src/$svc
                             echo "Pushing $svc..."
+                            
+                            # Retry logic for pushing images to handle transient network issues with Docker Hub
 
-                            docker push $DOCKER_USER/$svc:$IMAGE_TAG
-                            docker push $DOCKER_USER/$svc:latest
+                            for i in 1 2 3; do
+                                docker push $DOCKER_USER/$svc:$IMAGE_TAG && break
+                                echo "Retry push..."
+                                sleep 20
+                            done
+
+                            for i in 1 2 3; do
+                                docker push $DOCKER_USER/$svc:latest && break
+                                echo "Retry push..."
+                                sleep 20
+                            done
                             """
                         }
 

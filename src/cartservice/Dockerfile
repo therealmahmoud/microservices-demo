@@ -17,7 +17,7 @@ RUN dotnet publish cartservice.csproj \
     -c Release \
     -o /cartservice \
     -p:PublishTrimmed=true \
-    -p:TrimMode=full \
+    -p:TrimMode=partial \
     --self-contained false
 
 # Stage 2: Runtime
