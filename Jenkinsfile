@@ -33,7 +33,6 @@ stages {
                     'shippingservice',
                     'adservice',
                     'currencyservice',
-                    'shoppingassistantservice',
                     'emailservice'
                 ]
 
