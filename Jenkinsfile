@@ -14,6 +14,7 @@ pipeline {
         COMPOSE_HTTP_TIMEOUT = '600'
         DOCKER_BUILDKIT = '1'
         KUBECONFIG = credentials('kube-config-id')
+        K8S_NAMESPACE = "default"
     }
 
 stages {
