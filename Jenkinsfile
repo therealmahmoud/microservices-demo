@@ -17,119 +17,153 @@ pipeline {
 
 stages {
 
-        stage('Build & Push Docker Images') {
+    stage('Detect Changed Services') {
+        steps {
+            script {
+
+                SERVICES = [
+                    'frontend',
+                    'cartservice',
+                    'checkoutservice',
+                    'paymentservice',
+                    'productcatalogservice',
+                    'recommendationservice',
+                    'shippingservice',
+                    'adservice',
+                    'currencyservice',
+                    'emailservice'
+                ]
+
+                def changedFiles = sh(
+                    script: "git diff --name-only HEAD~1 HEAD",
+                    returnStdout: true
+                ).trim()
+
+                echo "Changed files: ${changedFiles}"
+
+                CHANGED_SERVICES = []
+
+                for (svc in SERVICES) {
+                    if (changedFiles.contains("src/${svc}")) {
+                        CHANGED_SERVICES.add(svc)
+                    }
+                }
+
+                if (CHANGED_SERVICES.isEmpty()) {
+                    echo "No service changes detected. Building all services."
+                    CHANGED_SERVICES = SERVICES
+                }
+
+                echo "Services to build: ${CHANGED_SERVICES}"
+            }
+        }
+    }
+    stage('Docker Login') {
+        steps {
+            withCredentials([usernamePassword(
+                credentialsId: 'dockerhub-creds',
+                usernameVariable: 'DOCKER_USER',
+                passwordVariable: 'DOCKER_PASS'
+            )]) {
+
+                sh '''
+                echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                '''
+            }
+        }
+    }
+    stage('Build & Push Images (Parallel)') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-creds',
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
+                script {
 
-                    script {
+                    def builds = [:]
 
-                        def services = [
-                            'frontend',
-                            'cartservice',
-                            'checkoutservice',
-                            'paymentservice',
-                            'productcatalogservice',
-                            'recommendationservice',
-                            'shippingservice',
-                            'adservice',
-                            'currencyservice',
-                            'emailservice'
-                        ]
+                    for (svc in CHANGED_SERVICES) {
 
-                        sh '''
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        '''
-
-                        for (svc in services) {
+                        builds[svc] = {
 
                             sh """
-                            echo "Building $svc..."
+                            set -e
+                            echo "Building ${svc}"
 
-                            docker pull $DOCKER_USER/$svc:latest || true
                             docker build \
-                                --cache-from=$DOCKER_USER/$svc:latest \
-                                -t $DOCKER_USER/$svc:$IMAGE_TAG \
-                                -t $DOCKER_USER/$svc:latest \
-                                ./src/$svc
-                            echo "Pushing $svc..."
-                            
-                            # Retry logic for pushing images to handle transient network issues with Docker Hub
+                                -t ${DOCKER_USER}/${svc}:${IMAGE_TAG} \
+                                -t ${DOCKER_USER}/${svc}:latest \
+                                ./src/${svc}
+
+                            echo "Pushing ${svc}"
 
                             for i in 1 2 3; do
-                                docker push $DOCKER_USER/$svc:$IMAGE_TAG && break
+                                docker push ${DOCKER_USER}/${svc}:${IMAGE_TAG} && break
                                 echo "Retry push..."
                                 sleep 20
                             done
 
                             for i in 1 2 3; do
-                                docker push $DOCKER_USER/$svc:latest && break
+                                docker push ${DOCKER_USER}/${svc}:latest && break
                                 echo "Retry push..."
                                 sleep 20
                             done
                             """
                         }
-
-                        sh "docker logout"
                     }
+
+                    parallel builds
                 }
             }
         }
 
-        stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    def services = [
-                        'frontend',
-                        'cartservice',
-                        'checkoutservice',
-                        'paymentservice',
-                        'productcatalogservice',
-                        'recommendationservice',
-                        'shippingservice',
-                        'adservice',
-                        'currencyservice',
-                        'emailservice'
-                    ]
+    stage('Deploy to Kubernetes') {
+        steps {
+            script {
+                def services = [
+                    'frontend',
+                    'cartservice',
+                    'checkoutservice',
+                    'paymentservice',
+                    'productcatalogservice',
+                    'recommendationservice',
+                    'shippingservice',
+                    'adservice',
+                    'currencyservice',
+                    'emailservice'
+                ]
 
-                    for (svc in services) {
-                        sh """
-                        kubectl set image deployment/${svc} ${svc}=$DOCKER_USER/${svc}:$IMAGE_TAG
-                        kubectl rollout status deployment/${svc}
-                        """
-                    }
+                for (svc in services) {
+                    sh """
+                    kubectl set image deployment/${svc} ${svc}=$DOCKER_USER/${svc}:$IMAGE_TAG
+                    kubectl rollout status deployment/${svc}
+                    """
                 }
             }
         }
-
-        stage('Apply Autoscaling') {
-            steps {
-                script {
-                    def services = [
-                        'frontend',
-                        'cartservice',
-                        'checkoutservice',
-                        'paymentservice',
-                        'productcatalogservice',
-                        'recommendationservice',
-                        'shippingservice',
-                        'adservice',
-                        'currencyservice',
-                        'emailservice'
-                    ]
-
-                    for (svc in services) {
-                        sh """
-                        kubectl autoscale deployment ${svc} --cpu-percent=50 --min=1 --max=5 || \
-                        kubectl patch hpa ${svc} -p '{"spec":{"maxReplicas":5}}'
-                        """
-                    }
-                }
-            }
-        }
-
     }
+
+    stage('Apply Autoscaling') {
+        steps {
+            script {
+                def services = [
+                    'frontend',
+                    'cartservice',
+                    'checkoutservice',
+                    'paymentservice',
+                    'productcatalogservice',
+                    'recommendationservice',
+                    'shippingservice',
+                    'adservice',
+                    'currencyservice',
+                    'emailservice'
+                ]
+
+                for (svc in services) {
+                    sh """
+                    kubectl autoscale deployment ${svc} --cpu-percent=50 --min=1 --max=5 || \
+                    kubectl patch hpa ${svc} -p '{"spec":{"maxReplicas":5}}'
+                    """
+                }
+            }
+        }
+    }
+
+}
 }
