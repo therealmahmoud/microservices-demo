@@ -9,7 +9,6 @@ pipeline {
     environment {
         DOCKER_USER = "therealmahmoud"
         IMAGE_NAME = "frontend"
-        IMAGE_TAG = "${GIT_COMMIT}"
         DOCKER_CLIENT_TIMEOUT = '600'
         COMPOSE_HTTP_TIMEOUT = '600'
         DOCKER_BUILDKIT = '1'
@@ -90,14 +89,13 @@ stages {
                             echo "Building ${svc}"
 
                             docker build \
-                                -t ${DOCKER_USER}/${svc}:${IMAGE_TAG} \
                                 -t ${DOCKER_USER}/${svc}:latest \
                                 ./src/${svc}
 
                             echo "Pushing ${svc}"
 
                             for i in 1 2 3; do
-                                docker push ${DOCKER_USER}/${svc}:${IMAGE_TAG} && break
+                                docker push ${DOCKER_USER}/${svc}:latest && break
                                 echo "Retry push..."
                                 sleep 20
                             done
