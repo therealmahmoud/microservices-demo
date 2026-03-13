@@ -83,7 +83,6 @@ stages {
                     def builds = [:]
 
                     for (svc in CHANGED_SERVICES) {
-
                         builds[svc] = {
 
                             sh """
@@ -108,11 +107,15 @@ stages {
                                 echo "Retry push..."
                                 sleep 20
                             done
+
+                            echo "Verifying image exists on Docker Hub..."
+
+                            docker pull ${DOCKER_USER}/${svc}:latest
                             """
                         }
                     }
 
-                    parallel builds.take(3)
+                    parallel builds
                 }
             }
         }
