@@ -135,12 +135,13 @@ stages {
                         echo "Updating image for ${svc}"
                         sh """
                         kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:$IMAGE_TAG -n $K8S_NAMESPACE
+                        kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:latest -n $K8S_NAMESPACE
                         """
                     }
 
                     sh """
                     for i in 1 2 3; do
-                        kubectl rollout status deployment/${svc} -n $K8S_NAMESPACE && break
+                        timeout 120s kubectl rollout status deployment/${svc} -n $K8S_NAMESPACE && break
                         echo "Retry rollout for ${svc}..."
                         sleep 10
                     done
