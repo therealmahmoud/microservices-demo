@@ -78,41 +78,27 @@ stages {
     stage('Build & Push Images (Parallel)') {
             steps {
                 script {
-
                     def builds = [:]
-
                     for (svc in CHANGED_SERVICES) {
                         builds[svc] = {
+                            script {
+                                def imageExists = sh(
+                                    script: "docker pull ${DOCKER_USER}/${svc}:latest || true",
+                                    returnStatus: true
+                                ) == 0
 
-                            sh """
-                            set -e
-                            echo "Building ${svc}"
-
-                            docker build \
-                                -t ${DOCKER_USER}/${svc}:latest \
-                                ./src/${svc}
-
-                            echo "Pushing ${svc}"
-
-                            for i in 1 2 3; do
-                                docker push ${DOCKER_USER}/${svc}:latest && break
-                                echo "Retry push..."
-                                sleep 20
-                            done
-
-                            for i in 1 2 3; do
-                                docker push ${DOCKER_USER}/${svc}:latest && break
-                                echo "Retry push..."
-                                sleep 20
-                            done
-
-                            echo "Verifying image exists on Docker Hub..."
-
-                            docker pull ${DOCKER_USER}/${svc}:latest
-                            """
+                                if (!imageExists) {
+                                    echo "Image ${DOCKER_USER}/${svc}:latest not found. Building..."
+                                    sh """
+                                        docker build -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
+                                        docker push ${DOCKER_USER}/${svc}:latest
+                                    """
+                                } else {
+                                    echo "Image ${DOCKER_USER}/${svc}:latest already exists on Docker Hub."
+                                }
+                            }
                         }
                     }
-
                     parallel builds
                 }
             }
