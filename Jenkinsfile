@@ -33,6 +33,7 @@ stages {
                     'shippingservice',
                     'adservice',
                     'currencyservice',
+                    'shoppingassistantservice',
                     'emailservice'
                 ]
 
@@ -118,39 +119,35 @@ stages {
         }
 
     stage('Deploy to Kubernetes') {
-            steps {
-                script {
-                    for (svc in CHANGED_SERVICES) {
-                        echo "Deploying ${svc}..."
+    steps {
+        script {
 
-                        def exists = sh(
-                            script: "kubectl get deployment ${svc} -n $K8S_NAMESPACE --ignore-not-found",
-                            returnStdout: true
-                        ).trim()
+            echo "Updating image tags..."
 
-                        if (!exists) {
-                            echo "Deployment ${svc} not found. Creating..."
-                            sh "kubectl create deployment ${svc} --image=${DOCKER_USER}/${svc}:${IMAGE_TAG} -n $K8S_NAMESPACE"
-                        } else {
-                            echo "Updating ${svc} image..."
+            for (svc in CHANGED_SERVICES) {
 
-                            def updateResult = sh(
-                                script: """
-                                kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:${IMAGE_TAG} -n $K8S_NAMESPACE || \\
-                                kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:latest -n $K8S_NAMESPACE
-                                """,
-                                returnStatus: true
-                            )
+                sh """
+                sed -i 's|image:.*${svc}:.*|image: ${DOCKER_USER}/${svc}:${IMAGE_TAG}|' \
+                kubernetes-manifests/${svc}.yaml
+                """
+            }
 
-                            if (updateResult != 0) {
-                                error "Failed to update ${svc} deployment with both commit tag and latest image."
-                            }
-                        }
-                        sh "kubectl rollout status deployment/${svc} -n $K8S_NAMESPACE --timeout=120s"
-                    }
-                }
+            echo "Applying Kubernetes manifests..."
+
+            sh """
+            kubectl apply -k kubernetes-manifests/ -n ${K8S_NAMESPACE}
+            """
+
+            echo "Waiting for rollouts..."
+
+            for (svc in CHANGED_SERVICES) {
+                sh """
+                kubectl rollout status deployment/${svc} -n ${K8S_NAMESPACE} --timeout=120s
+                """
             }
         }
+    }
+}
 
     stage('Apply Autoscaling') {
             steps {
