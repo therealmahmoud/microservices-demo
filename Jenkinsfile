@@ -87,9 +87,9 @@ stages {
                                 docker push ${DOCKER_USER}/${svc}:latest
 
                                 # Ensure image is available for K8s
-                                for i in 1 5; do
+                                for i in 1 10; do
                                     docker pull ${DOCKER_USER}/${svc}:latest && break
-                                    echo "Waiting for ${svc} image to be available..."
+                                    echo "Waiting for image ${svc} to propagate on Docker Hub..."
                                     sleep 5
                                 done
                             """
