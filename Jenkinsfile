@@ -111,14 +111,12 @@ stages {
                 sh """
                 sed -i "s|image:.*${svc}:.*|image: ${DOCKER_USER}/${svc}:latest|"\
                 kubernetes-manifests/${svc}.yaml
+                kubectl apply -f kubernetes-manifests/${svc}.yaml -n ${K8S_NAMESPACE}
                 """
+                echo "Applying Kubernetes ${svc} manifests..."
             }
 
-            echo "Applying Kubernetes manifests..."
 
-            sh """
-            kubectl apply -k kubernetes-manifests/ -n ${K8S_NAMESPACE}
-            """
 
             echo "Waiting for rollouts..."
 
