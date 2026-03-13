@@ -118,38 +118,39 @@ stages {
         }
 
     stage('Deploy to Kubernetes') {
-        steps {
-            script {
-                for (svc in CHANGED_SERVICES) {
-                    def exists = sh(
-                        script: "kubectl get deployment ${svc} -n $K8S_NAMESPACE || echo 'notfound'",
-                        returnStdout: true
-                    ).trim()
+            steps {
+                script {
+                    for (svc in CHANGED_SERVICES) {
+                        echo "Deploying ${svc}..."
 
-                    if (exists == 'notfound') {
-                        echo "Deployment ${svc} not found. Creating..."
-                        sh """
-                        kubectl create deployment ${svc} --image=${DOCKER_USER}/${svc}:$IMAGE_TAG -n $K8S_NAMESPACE || true
-                        """
-                    } else {
-                        echo "Updating image for ${svc}"
-                        sh """
-                        kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:$IMAGE_TAG -n $K8S_NAMESPACE || \
-                        kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:latest -n $K8S_NAMESPACE
-                        """
+                        def exists = sh(
+                            script: "kubectl get deployment ${svc} -n $K8S_NAMESPACE --ignore-not-found",
+                            returnStdout: true
+                        ).trim()
+
+                        if (!exists) {
+                            echo "Deployment ${svc} not found. Creating..."
+                            sh "kubectl create deployment ${svc} --image=${DOCKER_USER}/${svc}:${IMAGE_TAG} -n $K8S_NAMESPACE"
+                        } else {
+                            echo "Updating ${svc} image..."
+
+                            def updateResult = sh(
+                                script: """
+                                kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:${IMAGE_TAG} -n $K8S_NAMESPACE || \\
+                                kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:latest -n $K8S_NAMESPACE
+                                """,
+                                returnStatus: true
+                            )
+
+                            if (updateResult != 0) {
+                                error "Failed to update ${svc} deployment with both commit tag and latest image."
+                            }
+                        }
+                        sh "kubectl rollout status deployment/${svc} -n $K8S_NAMESPACE --timeout=120s"
                     }
-
-                    sh """
-                    for i in 1 2 3; do
-                        timeout 120s kubectl rollout status deployment/${svc} -n $K8S_NAMESPACE && break
-                        echo "Retry rollout for ${svc}..."
-                        sleep 10
-                    done
-                    """
                 }
             }
         }
-    }
 
     stage('Apply Autoscaling') {
             steps {
