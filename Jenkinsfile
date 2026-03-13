@@ -134,7 +134,7 @@ stages {
                     } else {
                         echo "Updating image for ${svc}"
                         sh """
-                        kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:$IMAGE_TAG -n $K8S_NAMESPACE
+                        kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:$IMAGE_TAG -n $K8S_NAMESPACE || \
                         kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:latest -n $K8S_NAMESPACE
                         """
                     }
