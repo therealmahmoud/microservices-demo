@@ -59,6 +59,7 @@ stages {
             }
         }
     }
+
     stage('Docker Login') {
         steps {
             withCredentials([usernamePassword(
@@ -73,6 +74,7 @@ stages {
             }
         }
     }
+
     stage('Build & Push Images (Parallel)') {
             steps {
                 script {
@@ -117,23 +119,30 @@ stages {
     stage('Deploy to Kubernetes') {
         steps {
             script {
-                def services = [
-                    'frontend',
-                    'cartservice',
-                    'checkoutservice',
-                    'paymentservice',
-                    'productcatalogservice',
-                    'recommendationservice',
-                    'shippingservice',
-                    'adservice',
-                    'currencyservice',
-                    'emailservice'
-                ]
+                for (svc in CHANGED_SERVICES) {
+                    def exists = sh(
+                        script: "kubectl get deployment ${svc} -n $K8S_NAMESPACE || echo 'notfound'",
+                        returnStdout: true
+                    ).trim()
 
-                for (svc in services) {
+                    if (exists == 'notfound') {
+                        echo "Deployment ${svc} not found. Creating..."
+                        sh """
+                        kubectl create deployment ${svc} --image=${DOCKER_USER}/${svc}:$IMAGE_TAG -n $K8S_NAMESPACE || true
+                        """
+                    } else {
+                        echo "Updating image for ${svc}"
+                        sh """
+                        kubectl set image deployment/${svc} ${svc}=${DOCKER_USER}/${svc}:$IMAGE_TAG -n $K8S_NAMESPACE
+                        """
+                    }
+
                     sh """
-                    kubectl set image deployment/${svc} ${svc}=$DOCKER_USER/${svc}:$IMAGE_TAG
-                    kubectl rollout status deployment/${svc}
+                    for i in 1 2 3; do
+                        kubectl rollout status deployment/${svc} -n $K8S_NAMESPACE && break
+                        echo "Retry rollout for ${svc}..."
+                        sleep 10
+                    done
                     """
                 }
             }
@@ -141,30 +150,16 @@ stages {
     }
 
     stage('Apply Autoscaling') {
-        steps {
-            script {
-                def services = [
-                    'frontend',
-                    'cartservice',
-                    'checkoutservice',
-                    'paymentservice',
-                    'productcatalogservice',
-                    'recommendationservice',
-                    'shippingservice',
-                    'adservice',
-                    'currencyservice',
-                    'emailservice'
-                ]
-
-                for (svc in services) {
-                    sh """
-                    kubectl autoscale deployment ${svc} --cpu-percent=50 --min=1 --max=5 || \
-                    kubectl patch hpa ${svc} -p '{"spec":{"maxReplicas":5}}'
-                    """
+            steps {
+                script {
+                    for (svc in CHANGED_SERVICES) {
+                        sh """
+                        kubectl autoscale deployment ${svc} --cpu-percent=50 --min=1 --max=5 -n $K8S_NAMESPACE || \
+                        kubectl patch hpa ${svc} -n $K8S_NAMESPACE -p '{"spec":{"maxReplicas":5}}'
+                        """
+                    }
                 }
             }
         }
     }
-
-}
 }
