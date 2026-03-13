@@ -81,22 +81,18 @@ stages {
                     def builds = [:]
                     for (svc in CHANGED_SERVICES) {
                         builds[svc] = {
-                            script {
-                                def imageExists = sh(
-                                    script: "docker pull ${DOCKER_USER}/${svc}:latest || true",
-                                    returnStatus: true
-                                ) == 0
+                            echo "Building and pushing ${svc}"
+                            sh """
+                                docker build -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
+                                docker push ${DOCKER_USER}/${svc}:latest
 
-                                if (!imageExists) {
-                                    echo "Image ${DOCKER_USER}/${svc}:latest not found. Building..."
-                                    sh """
-                                        docker build -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
-                                        docker push ${DOCKER_USER}/${svc}:latest
-                                    """
-                                } else {
-                                    echo "Image ${DOCKER_USER}/${svc}:latest already exists on Docker Hub."
-                                }
-                            }
+                                # Ensure image is available for K8s
+                                for i in 1 5; do
+                                    docker pull ${DOCKER_USER}/${svc}:latest && break
+                                    echo "Waiting for ${svc} image to be available..."
+                                    sleep 5
+                                done
+                            """
                         }
                     }
                     parallel builds
