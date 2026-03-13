@@ -126,7 +126,7 @@ stages {
             for (svc in CHANGED_SERVICES) {
 
                 sh """
-                sed -i 's|image:.*${svc}:.*|image: ${DOCKER_USER}/${svc}:${IMAGE_TAG}|' \
+                sed -i "s|image:.*${svc}:.*|image: ${DOCKER_USER}/${svc}:latest|"\
                 kubernetes-manifests/${svc}.yaml
                 """
             }
