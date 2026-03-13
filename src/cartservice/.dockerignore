@@ -1,6 +1,7 @@
-**/*.sh
-**/*.bat
-**/bin/
-**/obj/
-**/out/
-Dockerfile*
+bin
+obj
+tests
+.git
+.gitignore
+Dockerfile
+Jenkinsfile
