@@ -112,7 +112,7 @@ stages {
                         }
                     }
 
-                    parallel builds
+                    parallel builds.take(3)
                 }
             }
         }
