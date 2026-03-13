@@ -13,6 +13,7 @@ pipeline {
         DOCKER_CLIENT_TIMEOUT = '600'
         COMPOSE_HTTP_TIMEOUT = '600'
         DOCKER_BUILDKIT = '1'
+        KUBECONFIG = credentials('kube-config-id')
     }
 
 stages {
