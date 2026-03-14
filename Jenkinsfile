@@ -76,67 +76,80 @@ stages {
     }
 
     stage('Build & Push Images (Parallel)') {
-            steps {
-                script {
-                    def builds = [:]
-                    for (svc in CHANGED_SERVICES) {
-                        builds[svc] = {
-                            echo "Building and pushing ${svc}"
-                            sh """
-                                docker build -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
-                                docker push ${DOCKER_USER}/${svc}:latest
-
-                                # Ensure image is available for K8s
-                                for i in 1 10; do
-                                    docker pull ${DOCKER_USER}/${svc}:latest && break
-                                    echo "Waiting for image ${svc} to propagate on Docker Hub..."
-                                    sleep 5
-                                done
-                            """
-                        }
-                    }
-                    parallel builds
-                }
-            }
-        }
-
-    stage('Deploy to Kubernetes') {
     steps {
         script {
-
-            echo "Updating image tags..."
-
+            def builds = [:]
+            
             for (svc in CHANGED_SERVICES) {
+                // Create a local variable inside the loop scope
+                def currentSvc = svc 
+                
+                builds[currentSvc] = {
+                    echo "Building and pushing ${currentSvc}"
+                    // We use the local 'currentSvc' here to ensure each thread 
+                    // works on its own microservice
+                    sh """
+                        docker build -t ${DOCKER_USER}/${currentSvc}:latest ./src/${currentSvc}
+                        docker push ${DOCKER_USER}/${currentSvc}:latest
 
-                sh """
-                sed -i "s|image:.*${svc}:.*|image: ${DOCKER_USER}/${svc}:latest|"\
-                kubernetes-manifests/${svc}.yaml
-                kubectl apply -f kubernetes-manifests/${svc}.yaml -n ${K8S_NAMESPACE}
-                """
-                echo "Applying Kubernetes ${svc} manifests..."
-            }
-
-
-
-            echo "Waiting for rollouts..."
-
-            for (svc in CHANGED_SERVICES) {
-                sh """
-                kubectl rollout status deployment/${svc} -n ${K8S_NAMESPACE} --timeout=120s
-                """
+                        # Fixed retry logic: check if the image is pullable
+                        # This ensures the registry has finished indexing before the deploy stage
+                        for i in {1..5}; do
+                            if docker pull ${DOCKER_USER}/${currentSvc}:latest; then
+                                echo "Image ${currentSvc} is ready."
+                                break
+                            else
+                                echo "Waiting for image ${currentSvc} to propagate... (Attempt \$i)"
+                                sleep 5
+                            fi
+                        done
+                    """
+                    }
+                }
+                parallel builds
             }
         }
     }
-}
+
+    stage('Deploy to Kubernetes') {
+        steps {
+            script {
+                for (svc in CHANGED_SERVICES) {
+                    // Keep local scoping consistent for safety
+                    def currentSvc = svc 
+                    
+                    echo "Updating image and applying manifests for: ${currentSvc}"
+                    
+                    sh """
+                        # Update the image tag in the YAML file
+                        sed -i "s|image:.*${currentSvc}:.*|image: ${DOCKER_USER}/${currentSvc}:latest|" kubernetes-manifests/${currentSvc}.yaml
+                        
+                        # Apply the manifest
+                        kubectl apply -f kubernetes-manifests/${currentSvc}.yaml -n ${K8S_NAMESPACE}
+                    """
+                }
+
+                echo "Waiting for rollouts to complete..."
+                for (svc in CHANGED_SERVICES) {
+                    def currentSvc = svc
+                    sh "kubectl rollout status deployment/${currentSvc} -n ${K8S_NAMESPACE} --timeout=120s"
+                }
+            }
+        }
+    }
 
     stage('Apply Autoscaling') {
-            steps {
-                script {
-                    for (svc in CHANGED_SERVICES) {
-                        sh """
-                        kubectl autoscale deployment ${svc} --cpu-percent=50 --min=1 --max=5 -n $K8S_NAMESPACE || \
-                        kubectl patch hpa ${svc} -n $K8S_NAMESPACE -p '{"spec":{"maxReplicas":5}}'
-                        """
+        steps {
+            script {
+                for (svc in CHANGED_SERVICES) {
+                    def currentSvc = svc
+                    echo "Configuring HPA for ${currentSvc}..."
+                    
+                    // Idempotent HPA: Try to create, if exists, patch the maxReplicas
+                    sh """
+                        kubectl autoscale deployment ${currentSvc} --cpu-percent=50 --min=1 --max=5 -n ${K8S_NAMESPACE} || \
+                        kubectl patch hpa ${currentSvc} -n ${K8S_NAMESPACE} -p '{"spec":{"maxReplicas":5}}'
+                    """
                     }
                 }
             }
