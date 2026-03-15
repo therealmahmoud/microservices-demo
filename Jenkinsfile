@@ -1,3 +1,11 @@
+def SERVICES = [
+    'frontend', 'cartservice', 'checkoutservice',
+    'paymentservice', 'productcatalogservice',
+    'recommendationservice', 'shippingservice',
+    'adservice', 'currencyservice', 'emailservice'
+]
+def CHANGED_SERVICES = []
+
 pipeline {
     agent any
     
@@ -8,9 +16,7 @@ pipeline {
 
     environment {
         DOCKER_USER = "therealmahmoud"
-        IMAGE_NAME = "frontend"
         DOCKER_CLIENT_TIMEOUT = '600'
-        COMPOSE_HTTP_TIMEOUT = '600'
         DOCKER_BUILDKIT = '1'
         KUBECONFIG = credentials('kube-config-id')
         K8S_NAMESPACE = "default"
@@ -22,27 +28,12 @@ stages {
         steps {
             script {
 
-                SERVICES = [
-                    'frontend',
-                    'cartservice',
-                    'checkoutservice',
-                    'paymentservice',
-                    'productcatalogservice',
-                    'recommendationservice',
-                    'shippingservice',
-                    'adservice',
-                    'currencyservice',
-                    'emailservice'
-                ]
-
                 def changedFiles = sh(
                     script: "git diff --name-only HEAD~1 HEAD",
                     returnStdout: true
                 ).trim()
 
                 echo "Changed files: ${changedFiles}"
-
-                CHANGED_SERVICES = []
 
                 for (svc in SERVICES) {
                     if (changedFiles.contains("src/${svc}")) {
@@ -52,7 +43,7 @@ stages {
 
                 if (CHANGED_SERVICES.isEmpty()) {
                     echo "No service changes detected. Building all services."
-                    CHANGED_SERVICES = SERVICES
+                    CHANGED_SERVICES.addAll(SERVICES)
                 }
 
                 echo "Services to build: ${CHANGED_SERVICES}"
@@ -67,7 +58,6 @@ stages {
                 usernameVariable: 'DOCKER_USER',
                 passwordVariable: 'DOCKER_PASS'
             )]) {
-
                 sh '''
                 echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                 '''
@@ -90,20 +80,7 @@ stages {
                     // works on its own microservice
                     sh """
                         docker build -t ${DOCKER_USER}/${currentSvc}:latest ./src/${currentSvc}
-                        docker push ${DOCKER_USER}/${currentSvc}:latest
-
-                        # Fixed retry logic: check if the image is pullable
-                        # This ensures the registry has finished indexing before the deploy stage
-                        for i in {1..5}; do
-                            if docker pull ${DOCKER_USER}/${currentSvc}:latest; then
-                                echo "Image ${currentSvc} is ready."
-                                break
-                            else
-                                echo "Waiting for image ${currentSvc} to propagate... (Attempt \$i)"
-                                sleep 5
-                            fi
-                        done
-                    """
+                        docker push ${DOCKER_USER}/${currentSvc}:latest """
                     }
                 }
                 parallel builds
