@@ -1,8 +1,8 @@
 def SERVICES = [
-    'frontend', 'cartservice', 'checkoutservice',
+    'frontend', 'emailservice', 'checkoutservice',
     'paymentservice', 'productcatalogservice',
     'recommendationservice', 'shippingservice',
-    'adservice', 'currencyservice', 'emailservice'
+    'adservice', 'currencyservice', 'cartservice'
 ]
 def CHANGED_SERVICES = []
 
@@ -72,8 +72,11 @@ stages {
                         echo "--- Processing: ${svc} ---"
                         sh """
                             docker build -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
-                            docker push ${DOCKER_USER}/${svc}:latest
                         """
+                            // Retry the push up to 3 times if the network fails
+                        retry(3) {
+                            echo "Attempting to push ${svc}..."
+                            sh "docker push ${DOCKER_USER}/${svc}:latest"
                     }
                 }
             }
