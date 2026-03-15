@@ -16,7 +16,7 @@ pipeline {
 
     environment {
         DOCKER_USER = "therealmahmoud"
-        DOCKER_CLIENT_TIMEOUT = '600'
+        DOCKER_CLIENT_TIMEOUT = '900'
         DOCKER_BUILDKIT = '1'
         KUBECONFIG = credentials('kube-config-id')
         K8S_NAMESPACE = "default"
@@ -65,25 +65,29 @@ stages {
         }
     }
 
-    stage('Build & Push Images (Parallel)') {
-    steps {
-        script {
-            def builds = [:]
-            
-            for (svc in CHANGED_SERVICES) {
-                // Create a local variable inside the loop scope
-                def currentSvc = svc 
+    stage('Build & Push Images (Limited Parallel)') {
+        steps {
+            script {
+                // Set limit to 2 services at a time
+                def batchSize = 2 
                 
-                builds[currentSvc] = {
-                    echo "Building and pushing ${currentSvc}"
-                    // We use the local 'currentSvc' here to ensure each thread 
-                    // works on its own microservice
-                    sh """
-                        docker build -t ${DOCKER_USER}/${currentSvc}:latest ./src/${currentSvc}
-                        docker push ${DOCKER_USER}/${currentSvc}:latest """
+                for (int i = 0; i < CHANGED_SERVICES.size(); i += batchSize) {
+                    def batch = CHANGED_SERVICES.subList(i, Math.min(i + batchSize, CHANGED_SERVICES.size()))
+                    def builds = [:]
+                    
+                    for (svc in batch) {
+                        def currentSvc = svc 
+                        builds[currentSvc] = {
+                            echo "Building and pushing ${currentSvc}"
+                            sh """
+                                docker build -t ${DOCKER_USER}/${currentSvc}:latest ./src/${currentSvc}
+                                docker push ${DOCKER_USER}/${currentSvc}:latest
+                            """
+                        }
                     }
+                    echo "Running batch: ${batch}"
+                    parallel builds
                 }
-                parallel builds
             }
         }
     }
