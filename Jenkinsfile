@@ -65,37 +65,19 @@ stages {
         }
     }
 
-    stage('Build & Push Images (Limited Parallel)') {
-        steps {
-            script {
-                // Set limit to 2 services at a time
-                def batchSize = 2 
-                
-                for (int i = 0; i < CHANGED_SERVICES.size(); i += batchSize) {
-                    
-                    // FIX: Get the subList, then immediately cast it into a standard ArrayList
-                    // so Jenkins can serialize it without throwing an exception.
-                    def rawSubList = CHANGED_SERVICES.subList(i, Math.min(i + batchSize, CHANGED_SERVICES.size()))
-                    def batch = new ArrayList(rawSubList) 
-                    
-                    def builds = [:]
-                    
-                    for (svc in batch) {
-                        def currentSvc = svc 
-                        builds[currentSvc] = {
-                            echo "Building and pushing ${currentSvc}"
-                            sh """
-                                docker build -t ${DOCKER_USER}/${currentSvc}:latest ./src/${currentSvc}
-                                docker push ${DOCKER_USER}/${currentSvc}:latest
-                            """
-                        }
+    stage('Build & Push (One by One)') {
+            steps {
+                script {
+                    for (svc in CHANGED_SERVICES) {
+                        echo "--- Processing: ${svc} ---"
+                        sh """
+                            docker build -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
+                            docker push ${DOCKER_USER}/${svc}:latest
+                        """
                     }
-                    echo "Running batch: ${batch}"
-                    parallel builds
                 }
             }
         }
-    }
 
     stage('Deploy to Kubernetes') {
         steps {
