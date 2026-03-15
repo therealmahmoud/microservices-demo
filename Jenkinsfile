@@ -17,6 +17,7 @@ pipeline {
     environment {
         DOCKER_USER = "therealmahmoud"
         DOCKER_CLIENT_TIMEOUT = '900'
+        COMPOSE_HTTP_TIMEOUT= '300'
         DOCKER_BUILDKIT = '1'
         KUBECONFIG = credentials('kube-config-id')
         K8S_NAMESPACE = "default"
@@ -74,9 +75,12 @@ stages {
                             docker build --network=host -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
                         """
                             // Retry the push up to 3 times if the network fails
-                        retry(3) {
-                            echo "Attempting to push ${svc}..."
-                            sh "docker push ${DOCKER_USER}/${svc}:latest"
+                        retry(5) {
+                            echo "Attempting to push ${svc} with extended timeout..."
+                            // This env var tells the docker client to wait longer
+                            withEnv(["DOCKER_CLIENT_TIMEOUT=300", "COMPOSE_HTTP_TIMEOUT=300"]) {
+                                sh "docker push ${DOCKER_USER}/${svc}:latest"
+                        }
                     }
                 }
             }
