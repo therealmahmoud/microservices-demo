@@ -72,7 +72,12 @@ stages {
                 def batchSize = 2 
                 
                 for (int i = 0; i < CHANGED_SERVICES.size(); i += batchSize) {
-                    def batch = CHANGED_SERVICES.subList(i, Math.min(i + batchSize, CHANGED_SERVICES.size()))
+                    
+                    // FIX: Get the subList, then immediately cast it into a standard ArrayList
+                    // so Jenkins can serialize it without throwing an exception.
+                    def rawSubList = CHANGED_SERVICES.subList(i, Math.min(i + batchSize, CHANGED_SERVICES.size()))
+                    def batch = new ArrayList(rawSubList) 
+                    
                     def builds = [:]
                     
                     for (svc in batch) {
