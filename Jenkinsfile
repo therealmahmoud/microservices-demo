@@ -71,7 +71,7 @@ stages {
                     for (svc in CHANGED_SERVICES) {
                         echo "--- Processing: ${svc} ---"
                         sh """
-                            docker build -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
+                            docker build --network=host -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
                         """
                             // Retry the push up to 3 times if the network fails
                         retry(3) {
