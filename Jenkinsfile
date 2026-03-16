@@ -73,16 +73,21 @@ stages {
                 script {
                     for (svc in CHANGED_SERVICES) {
                         echo "--- Processing: ${svc} ---"
+
                         sh """
                             docker build --network=host \
                             --add-host services.gradle.org:104.18.191.9 \
                              -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
                         """
-                            // Retry the push up to 5 times if the network fails
-                        retry(5) {
-                            echo "Attempting to push ${svc} with extended timeout..."
-                            withEnv(["DOCKER_CLIENT_TIMEOUT=300", "COMPOSE_HTTP_TIMEOUT=300"]) {
+\
+                        retry(10) { // Increased to 10 retries
+                            try {
+                                echo "Pushing ${svc}... Jenkins is handling it, stay relaxed."
                                 sh "docker push ${DOCKER_USER}/${svc}:latest"
+                            } catch (Exception e) {
+                                echo "Network hiccup detected for ${svc}. Sleeping 10s and retrying automatically..."
+                                sleep 10
+                                error "Retrying push..." // This triggers the 'retry' block
                         }
                     }
                 }
