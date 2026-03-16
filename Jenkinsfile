@@ -1,9 +1,16 @@
+def SERVICES = [
+    'frontend', 'emailservice', 'checkoutservice',
+    'paymentservice', 'productcatalogservice',
+    'recommendationservice', 'shippingservice',
+    'adservice', 'currencyservice', 'cartservice'
+]
+def CHANGED_SERVICES = []
 
 pipeline {
     agent any
     
     options {
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 60, unit: 'MINUTES')
         timestamps()
     }
 
@@ -22,19 +29,12 @@ stages {
         steps {
             script {
 
-                def SERVICES = [
-                    'frontend', 'emailservice', 'checkoutservice',
-                    'paymentservice', 'productcatalogservice',
-                    'recommendationservice', 'shippingservice',
-                    'adservice', 'currencyservice', 'cartservice'
-                ]
                 
                 def changedFiles = sh(
                     script: "git diff --name-only HEAD~1 HEAD",
                     returnStdout: true
                 ).trim()
 
-                def CHANGED_SERVICES = []
 
                 echo "Changed files: ${changedFiles}"
 
@@ -78,7 +78,7 @@ stages {
                             --add-host services.gradle.org:104.18.191.9 \
                              -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
                         """
-                            // Retry the push up to 3 times if the network fails
+                            // Retry the push up to 5 times if the network fails
                         retry(5) {
                             echo "Attempting to push ${svc} with extended timeout..."
                             withEnv(["DOCKER_CLIENT_TIMEOUT=300", "COMPOSE_HTTP_TIMEOUT=300"]) {
