@@ -105,7 +105,7 @@ stages {
                     
                     sh """
                         # Update the image tag in the YAML file
-                        sed -i "s|image:.*${currentSvc}:.*|image: ${DOCKER_USER}/${currentSvc}:latest|" kubernetes-manifests/${currentSvc}.yaml
+                        sed -i 's|image:.*|image: ${DOCKER_USER}/${svc}:latest|' kubernetes-manifests/${svc}.yaml
                         
                         # Apply the manifest
                         kubectl apply -f kubernetes-manifests/${currentSvc}.yaml -n ${K8S_NAMESPACE}
