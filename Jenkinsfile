@@ -115,7 +115,7 @@ stages {
                 echo "Waiting for rollouts to complete..."
                 for (svc in CHANGED_SERVICES) {
                     def currentSvc = svc
-                    sh "kubectl rollout status deployment/${currentSvc} -n ${K8S_NAMESPACE} --timeout=300s"
+                    sh "kubectl rollout status deployment/${currentSvc} -n ${K8S_NAMESPACE} --timeout=600s"
                 }
             }
         }
