@@ -108,7 +108,7 @@ stages {
                         sed -i 's|image:.*|image: ${DOCKER_USER}/${svc}:latest|' kubernetes-manifests/${svc}.yaml    
                         # Apply the manifest
                         kubectl apply -f kubernetes-manifests/${currentSvc}.yaml \
-                        -n ${K8S_NAMESPACE} --insecure-skip-tls-verify --validate=false
+                        -n ${K8S_NAMESPACE} --kubeconfig=/var/jenkins_home/.kube/config --insecure-skip-tls-verify --validate=false
                     """
                 }
 
