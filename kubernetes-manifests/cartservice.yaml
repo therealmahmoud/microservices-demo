@@ -52,17 +52,19 @@ spec:
         resources:
           requests:
             cpu: 200m
-            memory: 64Mi
+            memory: 128Mi
           limits:
             cpu: 300m
-            memory: 128Mi
+            memory: 256Mi
         readinessProbe:
-          initialDelaySeconds: 15
+          initialDelaySeconds: 25
+          timeoutSeconds: 5
           grpc:
             port: 7070
         livenessProbe:
-          initialDelaySeconds: 15
-          periodSeconds: 10
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 5
           grpc:
             port: 7070
 ---
@@ -119,11 +121,11 @@ spec:
         ports:
         - containerPort: 6379
         readinessProbe:
-          periodSeconds: 5
+          periodSeconds: 15
           tcpSocket:
             port: 6379
         livenessProbe:
-          periodSeconds: 5
+          periodSeconds: 15
           tcpSocket:
             port: 6379
         volumeMounts:

@@ -99,7 +99,6 @@ stages {
         steps {
             script {
                 for (svc in CHANGED_SERVICES) {
-                    // Keep local scoping consistent for safety
                     def currentSvc = svc 
                     
                     echo "Updating image and applying manifests for: ${currentSvc}"
@@ -107,9 +106,13 @@ stages {
                     sh """
                         # Update the image tag in the YAML file
                         sed -i 's|image:.*|image: ${DOCKER_USER}/${svc}:latest|' kubernetes-manifests/${svc}.yaml    
+
+                        # Delete the old failed pod to give the new one a fresh start
+                        ${KUBECTL} delete pod -l app=${currentSvc} --force --grace-period=0 || true
+
                         # Apply the manifest
                         ${KUBECTL} apply -f kubernetes-manifests/${currentSvc}.yaml \
-                        -n ${K8S_NAMESPACE} --kubeconfig=/var/jenkins_home/.kube/config --insecure-skip-tls-verify --validate=false
+                        -n ${K8S_NAMESPACE} --validate=false
                     """
                 }
 
