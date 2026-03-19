@@ -109,8 +109,8 @@ stages {
 
                         # Debug: Confirm Redis is STILL redis:alpine
                         echo "--- VERIFYING YAML ---"
-                        grep -A 1 "name: redis-cart" kubernetes-manifests/${currentSvc}.yaml
-                        
+                        grep "image: redis:alpine" kubernetes-manifests/cartservice.yaml || (echo "ERROR: Redis image was corrupted!" && exit 1)
+
                         ${KUBECTL} apply -f kubernetes-manifests/${currentSvc}.yaml \
                         -n ${K8S_NAMESPACE} --validate=false
                     """
