@@ -21,6 +21,7 @@ pipeline {
         DOCKER_BUILDKIT = '1'
         KUBECONFIG = credentials('kube-config-id')
         K8S_NAMESPACE = "default"
+        KUBECTL = "kubectl --kubeconfig=/var/jenkins_home/.kube/config --insecure-skip-tls-verify"
     }
 
 stages {
@@ -107,7 +108,7 @@ stages {
                         # Update the image tag in the YAML file
                         sed -i 's|image:.*|image: ${DOCKER_USER}/${svc}:latest|' kubernetes-manifests/${svc}.yaml    
                         # Apply the manifest
-                        kubectl apply -f kubernetes-manifests/${currentSvc}.yaml \
+                        ${KUBECTL} apply -f kubernetes-manifests/${currentSvc}.yaml \
                         -n ${K8S_NAMESPACE} --kubeconfig=/var/jenkins_home/.kube/config --insecure-skip-tls-verify --validate=false
                     """
                 }
@@ -115,7 +116,7 @@ stages {
                 echo "Waiting for rollouts to complete..."
                 for (svc in CHANGED_SERVICES) {
                     def currentSvc = svc
-                    sh "kubectl rollout status deployment/${currentSvc} -n ${K8S_NAMESPACE} --timeout=600s"
+                    sh "${KUBECTL} rollout status deployment/${currentSvc} -n ${K8S_NAMESPACE} --timeout=600s"
                 }
             }
         }
@@ -130,8 +131,8 @@ stages {
                     
                     // Idempotent HPA: Try to create, if exists, patch the maxReplicas
                     sh """
-                        kubectl autoscale deployment ${currentSvc} --cpu-percent=50 --min=1 --max=5 -n ${K8S_NAMESPACE} || \
-                        kubectl patch hpa ${currentSvc} -n ${K8S_NAMESPACE} -p '{"spec":{"maxReplicas":5}}'
+                        ${KUBECTL} autoscale deployment ${currentSvc} --cpu-percent=50 --min=1 --max=5 -n ${K8S_NAMESPACE} || \
+                        ${KUBECTL} patch hpa ${currentSvc} -n ${K8S_NAMESPACE} -p '{"spec":{"maxReplicas":5}}'
                     """
                     }
                 }
