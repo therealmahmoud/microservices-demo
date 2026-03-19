@@ -105,18 +105,12 @@ stages {
                     
                     sh """
                         # Update the image tag in the YAML file
-                        sed -i "/app: ${currentSvc}/,/image:/ s|image:.*|image: ${DOCKER_USER}/${currentSvc}:latest|" kubernetes-manifests/${currentSvc}.yaml    
+                        sed -i "/name: ${currentSvc}/{n;s|image:.*|image: ${DOCKER_USER}/${currentSvc}:latest|;}" kubernetes-manifests/${currentSvc}.yaml
 
-                        # 1. Force delete the existing deployment if it's already failing
-                        ${KUBECTL} delete deployment ${currentSvc} --ignore-not-found=true
+                        # Debug: Confirm Redis is STILL redis:alpine
+                        echo "--- VERIFYING YAML ---"
+                        grep -A 1 "name: redis-cart" kubernetes-manifests/${currentSvc}.yaml
                         
-                        # 2. Wait 5 seconds for the cluster to clear
-                        sleep 5
-
-                        # 3. Debug: Print the updated image line from the manifest
-                        cat kubernetes-manifests/${currentSvc}.yaml | grep -B 2 "image:"
-
-                        # 4. Apply the manifest
                         ${KUBECTL} apply -f kubernetes-manifests/${currentSvc}.yaml \
                         -n ${K8S_NAMESPACE} --validate=false
                     """
@@ -125,7 +119,7 @@ stages {
                 echo "Waiting for rollouts to complete..."
                 for (svc in CHANGED_SERVICES) {
                     def currentSvc = svc
-                    sh "${KUBECTL} rollout status deployment/${currentSvc} -n ${K8S_NAMESPACE} --timeout=600s"
+                    sh "${KUBECTL} rollout status deployment/${currentSvc} -n ${K8S_NAMESPACE} --timeout=300s"
                 }
             }
         }
