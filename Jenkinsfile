@@ -105,7 +105,7 @@ stages {
                     
                     sh """
                         # Update the image tag in the YAML file
-                        sed -i 's|image:.*|image: ${DOCKER_USER}/${svc}:latest|' kubernetes-manifests/${svc}.yaml    
+                        sed -i "/app: ${currentSvc}/,/image:/ s|image:.*|image: ${DOCKER_USER}/${currentSvc}:latest|" kubernetes-manifests/${currentSvc}.yaml    
 
                         # 1. Force delete the existing deployment if it's already failing
                         ${KUBECTL} delete deployment ${currentSvc} --ignore-not-found=true
