@@ -108,8 +108,10 @@ stages {
                         sed -i "/name: ${currentSvc}/{n;s|image:.*|image: ${DOCKER_USER}/${currentSvc}:latest|;}" kubernetes-manifests/${currentSvc}.yaml
 
                         # Debug: Confirm Redis is STILL redis:alpine
-                        echo "--- VERIFYING YAML ---"
-                        grep "image: redis:alpine" kubernetes-manifests/cartservice.yaml || (echo "ERROR: Redis image was corrupted!" && exit 1)
+                        if [ "${currentSvc}" == "cartservice" ]; then
+                            echo "--- VERIFYING REDIS STATUS ---"
+                            grep "image: redis:alpine" kubernetes-manifests/cartservice.yaml || (echo "ERROR: Redis image was corrupted!" && exit 1)
+                        fi
 
                         ${KUBECTL} apply -f kubernetes-manifests/${currentSvc}.yaml \
                         -n ${K8S_NAMESPACE} --validate=false
