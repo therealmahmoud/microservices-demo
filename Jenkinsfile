@@ -107,10 +107,13 @@ stages {
                         # Update the image tag in the YAML file
                         sed -i 's|image:.*|image: ${DOCKER_USER}/${svc}:latest|' kubernetes-manifests/${svc}.yaml    
 
-                        # Delete the old failed pod to give the new one a fresh start
-                        ${KUBECTL} delete pod -l app=${currentSvc} --force --grace-period=0 || true
+                        # 1. Force delete the existing deployment if it's already failing
+                        ${KUBECTL} delete deployment ${currentSvc} --ignore-not-found=true
+                        
+                        # 2. Wait 5 seconds for the cluster to clear
+                        sleep 5
 
-                        # Apply the manifest
+                        # 3. Apply the manifest
                         ${KUBECTL} apply -f kubernetes-manifests/${currentSvc}.yaml \
                         -n ${K8S_NAMESPACE} --validate=false
                     """
