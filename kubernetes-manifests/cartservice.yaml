@@ -58,13 +58,13 @@ spec:
             memory: 256Mi
         readinessProbe:
           initialDelaySeconds: 25
-          timeoutSeconds: 5
+          timeoutSeconds: 10
           grpc:
             port: 7070
         livenessProbe:
           initialDelaySeconds: 30
           periodSeconds: 15
-          timeoutSeconds: 5
+          timeoutSeconds: 10
           grpc:
             port: 7070
 ---

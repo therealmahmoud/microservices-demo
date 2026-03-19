@@ -113,7 +113,10 @@ stages {
                         # 2. Wait 5 seconds for the cluster to clear
                         sleep 5
 
-                        # 3. Apply the manifest
+                        # 3. Debug: Print the updated image line from the manifest
+                        cat kubernetes-manifests/${currentSvc}.yaml | grep -B 2 "image:"
+
+                        # 4. Apply the manifest
                         ${KUBECTL} apply -f kubernetes-manifests/${currentSvc}.yaml \
                         -n ${K8S_NAMESPACE} --validate=false
                     """
