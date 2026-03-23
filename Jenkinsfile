@@ -21,7 +21,6 @@ pipeline {
         DOCKER_BUILDKIT = '1'
         KUBECONFIG = credentials('kube-config-id')
         K8S_NAMESPACE = "default"
-        KUBECTL = "kubectl --kubeconfig=\$KUBECONFIG --insecure-skip-tls-verify"
     }
 
 stages {
@@ -113,7 +112,8 @@ stages {
                             grep "image: redis:alpine" kubernetes-manifests/cartservice.yaml || (echo "ERROR: Redis image was corrupted!" && exit 1)
                         fi
 
-                        ${KUBECTL} apply -f kubernetes-manifests/${currentSvc}.yaml \
+                        kubectl apply --kubeconfig=${KUBECONFIG} --insecure-skip-tls-verify \
+                        -f kubernetes-manifests/${currentSvc}.yaml \
                         -n ${K8S_NAMESPACE} --validate=false
                     """
                 }
@@ -121,7 +121,8 @@ stages {
                 echo "Waiting for rollouts to complete..."
                 for (svc in CHANGED_SERVICES) {
                     def currentSvc = svc
-                    sh "${KUBECTL} rollout status deployment/${currentSvc} -n ${K8S_NAMESPACE} --timeout=300s"
+                    sh "kubectl rollout status deployment/${currentSvc} --kubeconfig=${KUBECONFIG} \ 
+                        --insecure-skip-tls-verify -n ${K8S_NAMESPACE} --timeout=300s"
                 }
             }
         }
@@ -136,8 +137,10 @@ stages {
                     
                     // Idempotent HPA: Try to create, if exists, patch the maxReplicas
                     sh """
-                        ${KUBECTL} autoscale deployment ${currentSvc} --cpu-percent=50 --min=1 --max=5 -n ${K8S_NAMESPACE} || \
-                        ${KUBECTL} patch hpa ${currentSvc} -n ${K8S_NAMESPACE} -p '{"spec":{"maxReplicas":5}}'
+                        kubectl autoscale deployment ${currentSvc} --kubeconfig=${KUBECONFIG} \
+                        --insecure-skip-tls-verify --cpu-percent=50 --min=1 --max=5 -n ${K8S_NAMESPACE} || \
+                        kubectl patch hpa ${currentSvc} --kubeconfig=${KUBECONFIG} \
+                        --insecure-skip-tls-verify -n ${K8S_NAMESPACE} -p '{"spec":{"maxReplicas":5}}'
                     """
                     }
                 }
