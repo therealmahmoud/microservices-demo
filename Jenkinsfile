@@ -121,7 +121,7 @@ stages {
                 echo "Waiting for rollouts to complete..."
                 for (svc in CHANGED_SERVICES) {
                     def currentSvc = svc
-                    sh "kubectl rollout status deployment/${currentSvc} --kubeconfig=${KUBECONFIG} \ 
+                    sh "kubectl rollout status deployment/${currentSvc} --kubeconfig=${KUBECONFIG} \
                         --insecure-skip-tls-verify -n ${K8S_NAMESPACE} --timeout=300s"
                 }
             }
