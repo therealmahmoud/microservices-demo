@@ -112,7 +112,7 @@ stages {
                             grep "image: redis:alpine" kubernetes-manifests/cartservice.yaml || (echo "ERROR: Redis image was corrupted!" && exit 1)
                         fi
 
-                        kubectl apply --kubeconfig=${KUBECONFIG} --insecure-skip-tls-verify \
+                        kubectl apply --kubeconfig="${KUBECONFIG}" --insecure-skip-tls-verify \
                         -f kubernetes-manifests/${currentSvc}.yaml \
                         -n ${K8S_NAMESPACE} --validate=false
                     """
@@ -121,7 +121,7 @@ stages {
                 echo "Waiting for rollouts to complete..."
                 for (svc in CHANGED_SERVICES) {
                     def currentSvc = svc
-                    sh "kubectl rollout status deployment/${currentSvc} --kubeconfig=${KUBECONFIG} \
+                    sh "kubectl rollout status deployment/${currentSvc} --kubeconfig="${KUBECONFIG}" \
                         --insecure-skip-tls-verify -n ${K8S_NAMESPACE} --timeout=300s"
                 }
             }
@@ -137,9 +137,9 @@ stages {
                     
                     // Idempotent HPA: Try to create, if exists, patch the maxReplicas
                     sh """
-                        kubectl autoscale deployment ${currentSvc} --kubeconfig=${KUBECONFIG} \
+                        kubectl autoscale deployment ${currentSvc} --kubeconfig="${KUBECONFIG}" \
                         --insecure-skip-tls-verify --cpu-percent=50 --min=1 --max=5 -n ${K8S_NAMESPACE} || \
-                        kubectl patch hpa ${currentSvc} --kubeconfig=${KUBECONFIG} \
+                        kubectl patch hpa ${currentSvc} --kubeconfig="${KUBECONFIG}" \
                         --insecure-skip-tls-verify -n ${K8S_NAMESPACE} -p '{"spec":{"maxReplicas":5}}'
                     """
                     }
