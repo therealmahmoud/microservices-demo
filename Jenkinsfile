@@ -21,7 +21,7 @@ pipeline {
         DOCKER_BUILDKIT = '1'
         KUBECONFIG = credentials('kube-config-id')
         K8S_NAMESPACE = "default"
-        KUBECTL = "kubectl --kubeconfig=\$KUBECONFIG --insecure-skip-tls-verify"
+        KUBECTL = "kubectl --kubeconfig=/var/jenkins_home/.kube/config --insecure-skip-tls-verify"
     }
 
 stages {
