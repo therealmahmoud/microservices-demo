@@ -21,7 +21,7 @@ pipeline {
         DOCKER_BUILDKIT = '1'
         KUBECONFIG = credentials('kube-config-id')
         K8S_NAMESPACE = "default"
-        KUBECTL = "kubectl --kubeconfig=/var/jenkins_home/.kube/config --insecure-skip-tls-verify"
+        KUBECTL = "kubectl --kubeconfig=\$KUBECONFIG --insecure-skip-tls-verify"
     }
 
 stages {
@@ -80,7 +80,7 @@ stages {
                             --add-host services.gradle.org:104.18.191.9 \
                              -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
                         """
-\
+
                         retry(10) { // Increased to 10 retries
                             try {
                                 echo "Pushing ${svc}... Jenkins is handling it, stay relaxed."
