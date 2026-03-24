@@ -104,8 +104,7 @@ stages {
                     
                     sh """
                         # Update the image tag in the YAML file
-                        sed -i "/name: ${currentSvc}/{n;s|image:.*|image: ${DOCKER_USER}/${currentSvc}:latest|;}" kubernetes-manifests/${currentSvc}.yaml
-
+                        sed -i "s|image: ${currentSvc}|image: ${DOCKER_USER}/${currentSvc}:latest|g" kubernetes-manifests/${currentSvc}.yaml
                         # Debug: Confirm Redis is STILL redis:alpine
                         if [ "${currentSvc}" = "cartservice" ]; then
                             echo "--- VERIFYING REDIS STATUS ---"
