@@ -126,7 +126,7 @@ stages {
                     def currentSvc = svc
                     sh """
                         kubectl rollout status deployment/${currentSvc} --kubeconfig="${KUBECONFIG}" \
-                        --insecure-skip-tls-verify -n ${K8S_NAMESPACE} --timeout=600s
+                        --insecure-skip-tls-verify -n ${K8S_NAMESPACE} --timeout=300s
                     """
                 }
             }
