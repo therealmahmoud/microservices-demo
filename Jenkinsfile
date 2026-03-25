@@ -28,7 +28,6 @@ stages {
     stage('Detect Changed Services') {
         steps {
             script {
-
                 
                 def changedFiles = sh(
                     script: "git diff --name-only HEAD~1 HEAD",
@@ -69,31 +68,32 @@ stages {
     }
 
     stage('Build & Push (One by One)') {
-            steps {
-                script {
-                    for (svc in CHANGED_SERVICES) {
-                        echo "--- Processing: ${svc} ---"
+        steps {
+            script {
+                for (svc in CHANGED_SERVICES) {
+                    echo "--- Processing: ${svc} ---"
 
-                        sh """
-                            docker build --network=host \
-                            --add-host services.gradle.org:104.18.191.9 \
-                             -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
-                        """
+                    sh """
+                        docker build --network=host \
+                        --add-host services.gradle.org:104.18.191.9 \
+                            -t ${DOCKER_USER}/${svc}:latest ./src/${svc}
+                    """
 
-                        retry(10) { // Increased to 10 retries
-                            try {
-                                echo "Pushing ${svc}... Jenkins is handling it, stay relaxed."
-                                sh "docker push ${DOCKER_USER}/${svc}:latest"
-                            } catch (Exception e) {
-                                echo "Network hiccup detected for ${svc}. Sleeping 10s and retrying automatically..."
-                                sleep 10
-                                error "Retrying push..." // This triggers the 'retry' block
+                    retry(10) { // Increased to 10 retries
+                        try {
+                            echo "Pushing ${svc}... Jenkins is handling it, stay relaxed."
+                            sh "docker push ${DOCKER_USER}/${svc}:latest"
+                        } catch (Exception e) {
+                            echo "Network hiccup detected for ${svc}. Sleeping 10s and retrying automatically..."
+                            sleep 10
+                            error "Retrying push..." // This triggers the 'retry' block
+                            }
                         }
                     }
                 }
             }
         }
-    }
+
     stage('Deploy to Kubernetes') {
         steps {
             script {
@@ -105,6 +105,7 @@ stages {
                     sh """
                         # Update the image tag in the YAML file
                         sed -i "s|image: ${currentSvc}\$|image: ${DOCKER_USER}/${currentSvc}:latest|g" kubernetes-manifests/${currentSvc}.yaml
+
                         # Debug: Confirm Redis is STILL redis:alpine
                         if [ "${currentSvc}" = "cartservice" ]; then
                             echo "--- VERIFYING REDIS STATUS ---"
@@ -117,11 +118,16 @@ stages {
                     """
                 }
 
+                // Wait for redis to be ready before checking rollouts
+                sleep 30
+
                 echo "Waiting for rollouts to complete..."
                 for (svc in CHANGED_SERVICES) {
                     def currentSvc = svc
-                    sh """kubectl rollout status deployment/${currentSvc} --kubeconfig="${KUBECONFIG}" \
-                        --insecure-skip-tls-verify -n ${K8S_NAMESPACE} --timeout=600s"""
+                    sh """
+                        kubectl rollout status deployment/${currentSvc} --kubeconfig="${KUBECONFIG}" \
+                        --insecure-skip-tls-verify -n ${K8S_NAMESPACE} --timeout=600s
+                    """
                 }
             }
         }
